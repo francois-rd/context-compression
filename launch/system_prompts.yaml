@@ -1,0 +1,9 @@
+prompts:
+  accord_baseline_plain: >-
+    You are a helpful assistant in a reasoning task.
+  accord_general_plain: >-
+    You are a helpful assistant in a reasoning task.
+  accord_baseline_zero_cot: >-
+    You are a helpful assistant in a reasoning task.
+  accord_general_zero_cot: >-
+    You are a helpful assistant in a reasoning task.

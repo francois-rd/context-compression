@@ -1,0 +1,20 @@
+# Global fields.
+verbose: true
+seed: 42
+active_dataset: MISSING  # Choices: MISSING, ACCORD
+active_transform: MISSING  # Choices: MISSING, PLAIN, ZERO_COT
+
+# Inference fields.
+active_data_slice: <missing>  # Depends on dataset (see analysis field below).
+active_llm: <missing-llm>  # Depends on system availability.
+active_llm_implementation: MISSING  # Choices: MISSING, DUMMY, OPENAI
+prompt_batch_size: 10
+checkpoint_frequency: 300.0
+active_parser: simple_mcq
+
+# Analysis fields.
+datasets: []
+data_slices:
+  accord: [F0, F1, AF1, F2, AF2, F3, AF3, F4, AF4, F5, AF5]
+transforms: []
+llms: []

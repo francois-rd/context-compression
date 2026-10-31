@@ -11,10 +11,9 @@ from .logprobs import (
 from .mcq import AnswerLabel, AnswerTerm
 from .monitor import await_server
 from .prompts import (
+    PromptKey,
     SystemPrompt,
     SystemPromptsConfig,
-    SystemPromptID,
-    UserTemplate,
-    UserTemplatesConfig,
-    UserTemplateID,
+    InstructionPrompt,
+    InstructionPromptsConfig,
 )

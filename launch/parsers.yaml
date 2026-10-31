@@ -1,0 +1,3 @@
+parsers:
+  simple_mcq:
+    parser_type: SIMPLE_MCQ

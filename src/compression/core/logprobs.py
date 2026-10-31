@@ -15,13 +15,12 @@ class Logprob:
     rank: Rank
     logprob: float
 
+    def __post_init__(self):
+        self.logprob = abs(self.logprob)
+
     @staticmethod
-    def from_dict(data: dict[str, Any], flip: bool) -> "Logprob":
-        return Logprob(
-            token=data["token"],
-            rank=data["rank"],
-            logprob=(-1 if flip else 1) * data["logprob"],
-        )
+    def from_dict(data: dict[str, Any]) -> "Logprob":
+        return Logprob(token=data["token"], rank=data["rank"], logprob=data["logprob"])
 
 
 @dataclass
@@ -31,12 +30,10 @@ class RankedLogprob:
     ranking: Literal["relative", "absolute"]
 
     @staticmethod
-    def from_dict(data: dict[str, Any], flip: bool) -> "RankedLogprob":
+    def from_dict(data: dict[str, Any]) -> "RankedLogprob":
         return RankedLogprob(
-            chosen=Logprob.from_dict(data["chosen"], flip),
-            others={
-                rank: Logprob.from_dict(d, flip) for rank, d in data["others"].items()
-            },
+            chosen=Logprob.from_dict(data["chosen"]),
+            others={rank: Logprob.from_dict(d) for rank, d in data["others"].items()},
             ranking=data["ranking"],
         )
 
@@ -47,35 +44,44 @@ class RankedLogprob:
 
 @dataclass
 class SpacedSubsequence:
-    indices: dict[int, PrefixWhitespace]
+    indices: list[int]
     reference: "Logprobs"
 
+    def start_idx(self) -> int:
+        return self.indices[0]
+
+    def end_idx(self) -> int:
+        return self.indices[-1]
+
     def to_text(self) -> str:
-        text = []
-        for index, whitespace in self.indices.items():
-            token = self.reference.sequence[index].chosen.token.strip()
-            text.append(whitespace + token)
-        return "".join(text)
+        return self.reference.to_text(self.start_idx(), self.end_idx())
 
     def to_tokens(self) -> list[str]:
-        return self.reference.to_tokens(min(self.indices), max(self.indices))
+        return self.reference.to_tokens(self.start_idx(), self.end_idx())
 
     def to_chosen_logprobs(self) -> list[float]:
-        return self.reference.to_chosen_logprobs(min(self.indices), max(self.indices))
+        return self.reference.to_chosen_logprobs(self.start_idx(), self.end_idx())
 
-    def verify(self, prefix_text: str | None, suffix_text: str | None) -> bool:
+    def verify(
+        self,
+        prefix_text: str | None,
+        suffix_text: str | None,
+        fuzzy: bool = False,
+    ) -> bool:
         if not self.indices:
             # If empty, cannot really verify accurately.
             return False
-        has_prefix = self._do_verify(prefix_text, min(self.indices.keys()) - 1, max)
-        has_suffix = self._do_verify(suffix_text, max(self.indices.keys()) + 1, min)
+        has_prefix = self._do_verify(prefix_text, self.start_idx() - 1, max, fuzzy)
+        has_suffix = self._do_verify(suffix_text, self.end_idx() + 1, min, fuzzy)
         return has_prefix and has_suffix
 
-    def _do_verify(self, text: str | None, target_idx: int, agg: Callable) -> bool:
+    def _do_verify(
+        self, text: str | None, target_idx: int, agg: Callable, fuzzy: bool = False
+    ) -> bool:
         if text is None:
             return False
-        for ss in self.reference.indices_of(text):
-            if ss.indices and agg(ss.indices.keys()) == target_idx:
+        for ss in self.reference.indices_of(text, fuzzy=fuzzy):
+            if ss.indices and agg(ss.indices) == target_idx:
                 return True
         return False
 
@@ -85,18 +91,19 @@ class Logprobs:
     sequence: list[RankedLogprob]
 
     @staticmethod
-    def from_dict(data: dict[str, Any], flip: bool) -> "Logprobs":
-        return Logprobs([RankedLogprob.from_dict(d, flip) for d in data["sequence"]])
+    def from_dict(data: dict[str, Any]) -> "Logprobs":
+        return Logprobs([RankedLogprob.from_dict(d) for d in data["sequence"]])
 
     def maybe_trim(
         self,
         trim_indicator: str | None,
         include_indicator: bool = False,
         raise_if_not_unique: bool = False,
+        fuzzy: bool = False,
     ) -> None:
         if trim_indicator is None:
             return
-        sequences = list(self.indices_of(trim_indicator))
+        sequences = list(self.indices_of(trim_indicator, fuzzy=fuzzy))
         if len(sequences) != 1:
             if raise_if_not_unique:
                 raise ValueError(f"{trim_indicator=}: not found in: {self.to_text()}")
@@ -121,25 +128,55 @@ class Logprobs:
         return [self.sequence[i].chosen.logprob for i in range(start_idx, end_idx)]
 
     def indices_of(
-        self, text: str, start_idx: int = 0, end_idx: int | None = None
+        self,
+        text: str,  # Text to search for.
+        start_idx: int = 0,
+        end_idx: int | None = None,
+        fuzzy: bool = False,  # Whether EOS can mismatch in *whitespace*.
     ) -> Iterable[SpacedSubsequence]:
-        working_sequence, working_prefix = {}, ""
+        working_sequence, working_prefix = [], ""
         end_idx = len(self.sequence) if end_idx is None else end_idx
+        end_idx = min(len(self.sequence), end_idx)
         for i, logprob in enumerate(self.sequence):
             if i < start_idx or i >= end_idx:
                 continue
             whitespace = self._determine_viability(logprob, working_prefix, text)
             if whitespace is None:
                 # Not viable and working sequence is incomplete, so reset.
-                working_sequence, working_prefix = {}, ""
+                working_sequence, working_prefix = [], ""
             else:
-                working_sequence[i] = whitespace
+                working_sequence.append(i)
                 working_prefix += whitespace + logprob.clean_up_token()
-            subsequence = SpacedSubsequence(indices=working_sequence, reference=self)
-            if subsequence.to_text() == text:
+            if working_sequence:
+                working_text = self.to_text(working_sequence[0], working_sequence[-1])
+            else:
+                working_text = ""
+            if fuzzy:
+                match = working_text.rstrip() == text.rstrip()
+            else:
+                match = working_text == text
+            if match:
                 # Working sequence is complete. Yield and then reset to look for more.
-                yield subsequence
-                working_sequence, working_prefix = {}, ""
+                yield SpacedSubsequence(indices=working_sequence, reference=self)
+                working_sequence, working_prefix = [], ""
+
+    def containing_token_of(self, char_offset: int, start_idx: int = 0) -> int | None:
+        # Translates between the token space and the character space of the string
+        # those tokens collectively represent.
+        # Given a specific idx of a start token, what token contains the text that is
+        # char_offset away? For example: given the token sequence:
+        # ["Hello", ", ", "World"], if we set start_idx=1, so we start on ", ", and we
+        # offset that by 3 characters (char_offset=3), then ',' is the 0th character,
+        # ' ' is the 1st, 'W' is the 2nd, and 'o' is the third. That puts us in the next
+        # token ("World"), which is token 2. So, we return 2.
+        count = 0
+        for i, logprob in enumerate(self.sequence):
+            if i < start_idx:
+                continue
+            count += len(logprob.chosen.token)
+            if count >= char_offset:
+                return i
+        return None
 
     @staticmethod
     def _determine_viability(
@@ -159,14 +196,6 @@ class AggregatorOption(Enum):
     SUM = "SUM"
     MIN = "MIN"
     MAX = "MAX"
-
-    @staticmethod
-    def absolute_options() -> list["AggregatorOption"]:
-        return [AggregatorOption.SUM, AggregatorOption.MIN]
-
-    @staticmethod
-    def relative_options() -> list["AggregatorOption"]:
-        return [AggregatorOption.MIN, AggregatorOption.MAX]
 
     def aggregate(self, logprobs: list[float], top: int | None = None) -> float:
         if top is not None:

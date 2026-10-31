@@ -1,0 +1,11 @@
+noop: {}
+token_skip:
+  keep_p: 50.0
+  unit: TOKEN
+  agg: SUM
+  random: false
+tail_pruning:
+  keep_p: 50.0
+  unit: PEAK
+  exclusivity_window: 10
+  frequency_scaler: 1.0

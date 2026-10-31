@@ -1,0 +1,32 @@
+prompts:
+  accord_baseline_plain: >-
+    Answer the following multiple-choice question with the best-fit answer.
+    Output one of the answer labels "A", "B", "C", "D", "E". Do not output anything
+    else. Any output that cannot be Regex-parsed into one of those answer labels
+    will be marked as a failure.
+  accord_general_plain: >-
+    Below are a set of logical statements relating to a multiple-choice question.
+    The contents of the statements may disagree with your prior knowledge of the
+    world. That is ok. Your task is to provide the most appropriate answer to the
+    multiple-choice question that follows based on the **reasoning presented in the
+    statements**, even if that answer disagrees with your prior knowledge. Provide
+    the best-fit answer. Output one of the answer labels "A", "B", "C", "D", "E".
+    Do not output anything else. Any output that cannot be Regex-parsed into one of
+    those answer labels will be marked as a failure.
+  accord_baseline_zero_cot: >-
+    Answer the following multiple-choice question with the best-fit answer.
+    Take as long as you need to reason about the answer. Once you're ready, provide
+    your answer by outputting "Answer: <label>" where "<label>" is one of the answer
+    labels "A", "B", "C", "D", "E". Any output that does not contain a substring
+    parseable with this regex "Answer:\s*[ABCDE]" will be marked as a failure.
+  accord_general_zero_cot: >-
+    Below are a set of logical statements relating to a multiple-choice question.
+    The contents of the statements may disagree with your prior knowledge of the
+    world. That is ok. Your task is to provide the most appropriate answer to the
+    multiple-choice question that follows based on the **reasoning presented in the
+    statements**, even if that answer disagrees with your prior knowledge. Provide
+    the best-fit answer. Take as long as you need to reason about the answer. Once
+    you're ready, provide your answer by outputting "Answer: <label>" where "<label>"
+    is one of the answer labels "A", "B", "C", "D", "E". Any output that does not
+    contain a substring parseable with this regex "Answer:\s*[ABCDE]" will be marked
+    as a failure.

@@ -1,21 +1,15 @@
 from dataclasses import dataclass
 
-SystemPromptID = str
-UserTemplateID = str
+PromptKey = str
 SystemPrompt = str
+InstructionPrompt = str
 
 
 @dataclass
 class SystemPromptsConfig:
-    prompts: dict[SystemPromptID, SystemPrompt]
+    prompts: dict[PromptKey, SystemPrompt]
 
 
 @dataclass
-class UserTemplate:
-    template: str
-    indicator: str
-
-
-@dataclass
-class UserTemplatesConfig:
-    templates: dict[UserTemplateID, UserTemplate]
+class InstructionPromptsConfig:
+    prompts: dict[PromptKey, InstructionPrompt]

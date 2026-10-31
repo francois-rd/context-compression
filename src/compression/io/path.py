@@ -13,14 +13,14 @@ class PathConfig:
     # Non-code data directory.
     data_dir: str = "${root_dir}/data"
 
+    # General log directory.
+    log_dir: str = "${data_dir}/logs"
+
     # Input/resource data directory.
     resources_dir: str = "${data_dir}/resources"
 
     # Output/results data directory.
     results_dir: str = "${data_dir}/results"
-
-    # ConceptNet KB directory, in the same format as the ACCORD post-processing.
-    concept_net_dir: str = "${resources_dir}/ConceptNet"
 
     # ACCORD dataset directory, in the same format as the original ACCORD paper.
     accord_dir: str = "${resources_dir}/ACCORD"
@@ -50,8 +50,5 @@ class PathConfig:
     # ACCORD tree size 5 dataset file, in the same format as the original ACCORD paper.
     accord_tree_size_5_file: str = "${accord_dir}/5.jsonl"
 
-    # Top-level result directory for the ConceptNet experiment.
-    cnet_exp_dir: str = "${results_dir}/conceptnet"
-
-    # Top-level result directory for the ACCORD experiment.
-    accord_exp_dir: str = "${results_dir}/accord"
+    # Top-level result directory for all applied transforms
+    transforms_dir: str = "${results_dir}/transforms"

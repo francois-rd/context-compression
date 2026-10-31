@@ -19,6 +19,17 @@ class LLMImplementation(Enum):
     OPENAI = "OPENAI"
 
 
+DerivedDataKey = str
+
+
+class DerivedData(Enum):
+    LOGPROBS = "LOGPROBS"
+    PROMPT_LOGPROBS = "PROMPT_LOGPROBS"
+
+    def to_key(self) -> DerivedDataKey:
+        return self.value.lower()
+
+
 @dataclass
 class LLMOutput:
     # The LLM's generated output text, or None if an error occurred.
@@ -28,10 +39,7 @@ class LLMOutput:
     error_message: str | None
 
     # Any other derived output data, or None if an error occurred or no data exists.
-    # Known options:
-    #  - logprobs
-    #  - prompt_logprobs
-    derived_data: dict[str, Any] | None = None
+    derived_data: dict[DerivedDataKey, Any] | None = None
 
 
 class LLM:
@@ -43,12 +51,3 @@ class LLM:
     def invoke(self, prompt_data: PromptData, *args, **kwargs) -> LLMOutput:
         """Invokes the underlying LLM, returning its output."""
         raise NotImplementedError
-
-
-@dataclass
-class LLMsConfig:
-    # The nickname of the LLM to load.
-    llm: Nickname = MISSING_NICKNAME
-
-    # The implementation to use to load the LLM.
-    implementation: LLMImplementation = LLMImplementation.MISSING

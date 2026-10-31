@@ -10,7 +10,7 @@ from retry.api import retry_call
 from ..core import Logprob, Logprobs, RankedLogprob, await_server
 from ..io import init_logger
 
-from .base import LLM, LLMOutput, Nickname
+from .base import DerivedData, LLM, LLMOutput, Nickname, flatten
 from .prompting import PromptData, Message, MessageType
 
 
@@ -18,12 +18,10 @@ class MakeOpenAILogprobs:
     def __init__(
         self,
         nickname: Nickname,
-        chosen_only: bool = False,
         trim_indicator: str | None = None,
-        **_,
     ):
         self.nickname = nickname
-        self.chosen_only = chosen_only
+        self.chosen_only = True  # Removed option to set False, but keep validated code.
         self.indicator = trim_indicator
 
     def __call__(
@@ -41,7 +39,7 @@ class MakeOpenAILogprobs:
             raise ValueError(f"Unsupported raw format for logprobs: {raw_format}")
 
     def _maybe_trim(self, logprobs: Logprobs) -> Logprobs:
-        logprobs.maybe_trim(self.indicator, raise_if_not_unique=True)
+        logprobs.maybe_trim(self.indicator, raise_if_not_unique=True, fuzzy=True)
         return logprobs
 
     def _from_vllm(self, raw_logprobs) -> Logprobs:
@@ -305,6 +303,7 @@ class OpenAILLM(LLM):
         nickname: Nickname,
         llm_cfg: OpenAIConfig,
         *args,
+        log_dir: str,
         **kwargs,
     ):
         from openai import OpenAI  # Delayed import.
@@ -318,9 +317,8 @@ class OpenAILLM(LLM):
         if not api_none and job_none and url_none:
             api_key = os.environ[self.cfg.api_env_var]
         elif not job_none and api_none and url_none:
-            out_dir: str = kwargs.get("out_dir", ".")
-            log_file = f"{nickname.replace('/', '-')}-{datetime.now().isoformat()}.log"
-            init_logger(log_file, filename=str(os.path.join(out_dir, log_file)))
+            log_file = f"{flatten(nickname)}-{datetime.now().isoformat()}.log"
+            init_logger(log_file, filename=str(os.path.join(log_dir, log_file)))
             base_url = await_server(self.cfg.vllm_slurm_job_id, logger_name=log_file)
         elif not url_none and api_none and job_none:
             base_url = self.cfg.vllm_base_url
@@ -335,7 +333,7 @@ class OpenAILLM(LLM):
     def invoke(self, prompt_data: PromptData, *args, **kwargs) -> LLMOutput:
         from openai import OpenAIError
 
-        data = prompt_data.additional_data.get("derived_data", None)
+        data = prompt_data.flow_through_data.get("derived_data", None)
         try:
             f_args = (prompt_data.messages,)
             out = retry_call(self._do_invoke, fargs=f_args, fkwargs=kwargs, delay=10)
@@ -349,9 +347,9 @@ class OpenAILLM(LLM):
             )
         data = data or {}
         if out.logprobs is not None:
-            data["logprobs"] = out.logprobs
+            data[DerivedData.LOGPROBS.to_key()] = out.logprobs
         if out.prompt_logprobs is not None:
-            data["prompt_logprobs"] = out.prompt_logprobs
+            data[DerivedData.PROMPT_LOGPROBS.to_key()] = out.prompt_logprobs
         return LLMOutput(
             generated_text=out.generated_text, error_message=None, derived_data=data
         )

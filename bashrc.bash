@@ -35,65 +35,22 @@ export -f launch
 
 # Basic terminal auto-complete.
 complete -W "
-cnet.preprocess
-cnet.make.prompts
-cnet.infer
-cnet.postprocess
-cnet.analyze
-cnet.figure1
-cnet.surface.dataset
-accord.make.prompts
-accord.infer
-accord.postprocess
-accord.analyze
+infer
 test.launch
-test.accord.loader
 " launch
 
-
-launch-cnet-preprocess-all-relations () {
-  START_TIME=$(date +%s)
-  for r in AtLocation Causes HasPrerequisite IsA PartOf UsedFor ; do
-    echo relation_type="$r"
-    launch cnet.preprocess "$@" -- relation_type="$r"
-  done
-  END_TIME=$(date +%s)
-  echo "Completed all runs in $((END_TIME - START_TIME)) total seconds."
-}
-
-
-launch-cnet-infer () {
+launch-dummy-infer () {
   pushd "$COMA_DEFAULT_CONFIG_DIR" > /dev/null || exit
-  bash conceptnet/infer.bash "$@"
+  bash dummy/infer.bash "$@"
   popd > /dev/null || exit
 }
-export -f launch-cnet-infer
+export -f launch-dummy-infer
 
-
-launch-cnet-infer-all-variants () {
+launch-dummy-infer-all-accord () {
   START_TIME=$(date +%s)
-  for v in factual random controlled ; do
-    echo inference_variant_id="$v"
-    launch-cnet-infer "$@" -- inference_variant_id="$v"
-  done
-  END_TIME=$(date +%s)
-  echo "Completed all runs in $((END_TIME - START_TIME)) total seconds."
-}
-
-
-launch-accord-infer () {
-  pushd "$COMA_DEFAULT_CONFIG_DIR" > /dev/null || exit
-  bash accord/infer.bash "$@"
-  popd > /dev/null || exit
-}
-export -f launch-accord-infer
-
-
-launch-accord-infer-all-variants () {
-  START_TIME=$(date +%s)
-  for v in baseline one two three four five ; do
-    echo inference_variant_id="$v"
-    launch-accord-infer "$@" -- inference_variant_id="$v"
+  for slice in F0 F1 AF1 F2 AF2 F3 AF3 F4 AF4 F5 AF5 ; do
+    echo active_data_slice="$slice"
+    launch-dummy-infer -d ACCORD -s "$slice" "$@"
   done
   END_TIME=$(date +%s)
   echo "Completed all runs in $((END_TIME - START_TIME)) total seconds."

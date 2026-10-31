@@ -1,0 +1,9 @@
+plain:
+  suffix: 'Answer:
+
+    '
+zero_cot:
+  suffix: Let's think step by step.
+forced_cot:
+  suffix: Let's think step by step.
+  manipulation: MISSING

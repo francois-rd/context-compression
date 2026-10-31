@@ -7,9 +7,9 @@ from langchain_core.runnables.base import RunnableEach
 from tqdm import tqdm
 
 from ..io import ConditionalPrinter, load_dataclass_jsonl, save_dataclass_jsonl
-from ..parsing import OutputParser
+from ..parsing import OutputParser, ParserResult
 
-from .base import LLMsConfig
+from .base import LLMImplementation, LLMOutput, Nickname
 from .load import load_llm
 from .prompting import PromptData
 
@@ -17,9 +17,8 @@ from .prompting import PromptData
 @dataclass
 class Inference:
     prompt_data: PromptData
-    output: Any | None
-    derived_data: dict[str, Any] | None
-    error_message: str | None
+    raw_llm_output: LLMOutput
+    parser_result: ParserResult | None
 
 
 @dataclass
@@ -37,13 +36,14 @@ class PromptWrapper:
 class ParallelInference:
     def __init__(
         self,
+        llm: Nickname,
+        llm_implementation: LLMImplementation,
         parser: OutputParser,
-        llms: LLMsConfig,
         *args,
         **kwargs,
     ):
+        self.llm = load_llm(llm, llm_implementation, *args, **kwargs)
         self.parser = parser
-        self.llm = load_llm(llms, *args, **kwargs)
         self.chain = self._generate_chain()
 
     def __call__(self, prompts: list[PromptData], *args, **kwargs) -> list[Inference]:
@@ -54,18 +54,22 @@ class ParallelInference:
         def runnable(w: PromptWrapper) -> Inference:
             llm_output = self.llm.invoke(w.prompt_data, *w.args, **w.kwargs)
             if llm_output.error_message is not None:
+                llm_output.derived_data = None
                 return Inference(
                     prompt_data=replace(w.prompt_data, messages=None),
-                    output=None,
-                    derived_data=None,
-                    error_message=llm_output.error_message,
+                    raw_llm_output=llm_output,
+                    parser_result=None,
                 )
-            parser_output = self.parser(llm_output.generated_text, *w.args, **w.kwargs)
+            parser_result = self.parser(
+                generated_text=llm_output.generated_text,
+                prompt_data=w.prompt_data,
+                *w.args,
+                **w.kwargs,
+            )
             return Inference(
                 prompt_data=replace(w.prompt_data, messages=None),
-                output=parser_output,
-                derived_data=llm_output.derived_data,
-                error_message=None,
+                raw_llm_output=llm_output,
+                parser_result=parser_result,
             )
 
         return RunnableEach(bound=runnable)
@@ -132,9 +136,9 @@ class CheckpointedParallelInference:
                 # the checkpoint, so that they get retried. Hence, include in checkpoint
                 # only if error is None.
                 self.checkpoint = [
-                    (i.prompt_data.group_id, i.prompt_data.prompt_id)
+                    i.prompt_data.instance_id
                     for i in load_dataclass_jsonl(out_file, t=Inference)
-                    if i.error_message is None
+                    if i.raw_llm_output.error_message is None
                 ]
             except FileNotFoundError:
                 self.checkpoint = []
@@ -142,13 +146,14 @@ class CheckpointedParallelInference:
             self.checkpoint = []
         self.print("Done.")
 
-    def skip(self, prompt_data: PromptData) -> bool:
-        return (prompt_data.group_id, prompt_data.prompt_id) in self.checkpoint
+    def _skip(self, prompt_data: PromptData) -> bool:
+        return prompt_data.instance_id in self.checkpoint
 
     def __call__(self, prompts: list[PromptData], *args, **kwargs) -> None:
-        # Summarize checkpoint skips, if verbose.
-        skipped = len(self.checkpoint)
-        total = skipped + len(prompts)
+        # Apply checkpoint skips. Summarize if verbose.
+        total = len(prompts)
+        prompts = [p for p in prompts if not self._skip(p)]
+        skipped = total - len(prompts)
         self.print(f"Skipping {skipped}/{total} prompts due to checkpointing.")
 
         # Make batches.
