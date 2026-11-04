@@ -39,19 +39,113 @@ infer
 test.launch
 " launch
 
-launch-dummy-infer () {
+_launch-infer () {
+  local OPTIND
+  local opt implementation folder
+  while getopts ":i:" opt; do
+    case ${opt} in
+      i) implementation="${OPTARG}" ;;
+      :)
+        echo "Option -${OPTARG} requires an argument."
+        return 1
+        ;;
+      *) echo skipping "${OPTARG}" ;;
+    esac
+  done
+  shift "$(( OPTIND - 1 ))"
+  case "$implementation" in
+    DUMMY) folder=dummy ;;
+    OPENAI) folder=openai ;;
+    *)
+      echo "Invalid implementation: '$implementation'. Choose from: DUMMY, OPENAI."
+      return 1
+      ;;
+  esac
   pushd "$COMA_DEFAULT_CONFIG_DIR" > /dev/null || exit
-  bash dummy/infer.bash "$@"
+  bash "$folder"/infer.bash "$@"
   popd > /dev/null || exit
 }
-export -f launch-dummy-infer
+export -f _launch-infer
 
-launch-dummy-infer-all-accord () {
-  START_TIME=$(date +%s)
-  for slice in F0 F1 AF1 F2 AF2 F3 AF3 F4 AF4 F5 AF5 ; do
-    echo active_data_slice="$slice"
-    launch-dummy-infer -d ACCORD -s "$slice" "$@"
+_launch-infer-baseline-transforms () {
+  for transform in PLAIN ZERO_COT ; do
+    echo active_transform="$transform"
+    _launch-infer "$1" "$2" -- -t "$transform" "${@:3}"
   done
+  for keep_p in 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0 100.0 ; do
+    for unit in NEWLINE SENTENCE TOKEN ; do
+      echo active_manipulation=RANDOM keep_p="$keep_p" unit="$unit"
+      _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
+         forced_cot.manipulation=TOKEN_SKIP \
+         token_skip.random=true token_skip.keep_p="$keep_p" token_skip.unit="$unit"
+    done
+  done
+}
+export -f _launch-infer-baseline-transforms
+
+_launch-infer-token-skip () {
+  for keep_p in 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0 100.0 ; do
+    for unit in NEWLINE SENTENCE TOKEN ; do
+      echo active_manipulation=TOKEN_SKIP keep_p="$keep_p" unit="$unit"
+      _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
+        forced_cot.manipulation=TOKEN_SKIP \
+        token_skip.random=false token_skip.keep_p="$keep_p" token_skip.unit="$unit"
+    done
+  done
+}
+export -f _launch-infer-token-skip
+
+_launch-infer-tail-pruning-base () {
+  for keep_p in 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0 100.0 ; do
+    for unit in NEWLINE SENTENCE ; do
+      echo active_manipulation=TAIL_PRUNING keep_p="$keep_p" unit="$unit"
+      _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
+        forced_cot.manipulation=TAIL_PRUNING \
+        tail_pruning.keep_p="$keep_p" tail_pruning.unit="$unit"
+    done
+  done
+}
+export -f _launch-infer-tail-pruning-base
+
+_launch-infer-tail-pruning-peak () {
+  for keep_p in 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0 100.0 ; do
+    for exclusivity_window in 5 10 20 ; do
+      for frequency_scaler in 0.5 1.0 2.0 ; do
+        echo keep_p="$keep_p" window="$exclusivity_window" scaler="$frequency_scaler"
+        _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
+          forced_cot.manipulation=TAIL_PRUNING \
+          tail_pruning.keep_p="$keep_p" tail_pruning.unit=PEAK \
+          tail_pruning.exclusivity_window="$exclusivity_window" \
+          tail_pruning.frequency_scaler="$frequency_scaler"
+      done
+    done
+  done
+}
+export -f _launch-infer-tail-pruning-peak
+
+_launch-infer-all-transform-manipulations () {
+  START_TIME=$(date +%s)
+  _launch-infer-baseline-transforms "$@"
+  _launch-infer-token-skip "$@"
+  _launch-infer-tail-pruning-base "$@"
+  _launch-infer-tail-pruning-peak "$@"
   END_TIME=$(date +%s)
   echo "Completed all runs in $((END_TIME - START_TIME)) total seconds."
+}
+export -f _launch-infer-all-transform-manipulations
+
+_launch-infer-accord () {
+  for slice in F0 F1 AF1 F2 AF2 F3 AF3 F4 AF4 F5 AF5 ; do
+    echo active_data_slice="$slice"
+    _launch-infer-all-transform-manipulations "$1" "$2" -d ACCORD -s "$slice" "${@:3}"
+  done
+}
+export -f _launch-infer-accord
+
+launch-infer-accord-dummy () {
+  _launch-infer-accord -i DUMMY "$@"
+}
+
+launch-infer-accord-openai () {
+  _launch-infer-accord -i OPENAI "$@"
 }

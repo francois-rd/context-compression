@@ -55,7 +55,10 @@ case "$transform" in
 esac
 if [ "$reason" ]
 then
-  llm="$llm"_reason
+  if [ "$transform" != "PLAIN" ]
+  then
+    llm="$llm"_reason
+  fi
 fi
 
 launch infer active_dataset="$dataset" active_data_slice="$slice" \
