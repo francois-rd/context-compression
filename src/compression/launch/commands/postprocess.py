@@ -3,6 +3,7 @@ from collections import Counter
 import os
 
 from coma import command
+from scipy.stats import sem, t as t_dist
 from statsmodels.stats.proportion import proportion_confint
 import numpy as np
 
@@ -114,17 +115,28 @@ class SliceTransformDatabase:
 @dataclass
 class Outcome:
     accuracy: float | None
-    ci: float | None
+    acc_ci: tuple[float, float] | None
+    length_mean: float | None
+    length_ci: tuple[float, float] | None
     n: int | None
 
     @staticmethod
-    def from_scores(binary_scores: list[int]) -> "Outcome":
+    def from_data(binary_scores: list[int], text_lengths: list[int]) -> "Outcome":
         count, nobs = np.count_nonzero(binary_scores), len(binary_scores)
+        if len(text_lengths) != nobs:
+            raise ValueError(f"Got {nobs} scores, but {len(text_lengths)} lengths.")
         if nobs == 0:
-            return Outcome(accuracy=None, ci=None, n=None)
+            return Outcome(
+                accuracy=None, acc_ci=None, length_mean=None, length_ci=None, n=None
+            )
+        length_mean = np.mean(text_lengths).item()
         return Outcome(
             accuracy=count / nobs,
-            ci=proportion_confint(count=count, nobs=nobs, alpha=0.05),
+            acc_ci=proportion_confint(count=count, nobs=nobs, alpha=0.05),
+            length_mean=length_mean,
+            length_ci=t_dist.interval(
+                1 - 0.05, df=nobs - 1, loc=length_mean, scale=sem(text_lengths)
+            ),
             n=nobs,
         )
 
@@ -157,8 +169,14 @@ class StructuredOutcomes:
         default_factory=list
     )
 
-    def add(self, stp: SliceTransformProduct, binary_scores: list[int]) -> None:
-        transform_name, outcome = stp.transform.name, Outcome.from_scores(binary_scores)
+    def add(
+        self,
+        stp: SliceTransformProduct,
+        binary_scores: list[int],
+        text_lengths: list[int],
+    ) -> None:
+        outcome = Outcome.from_data(binary_scores, text_lengths)
+        transform_name = stp.transform.name
         if transform_name == TransformName.PLAIN:
             self.plain = outcome
         elif transform_name == TransformName.ZERO_COT:
@@ -234,7 +252,8 @@ class Postprocess:
         self.print(f"Processing: {llm}...")
         for stp in self.stp_db.get_all_slice_transform_products():
             name, path = stp.data_slice.slice_name, stp.transform.get_path_dir()
-            scores, inferences = [], self._preprocess_inferences(llm, stp)
+            scores, lens = [], []
+            inferences = self._preprocess_inferences(llm, stp)
             if inferences is None:
                 continue
             if name not in slice_names:
@@ -243,7 +262,9 @@ class Postprocess:
             for inference in inferences:
                 correct_key = DerivedData.CORRECTNESS.to_key()
                 scores.append(inference.raw_llm_output.derived_data[correct_key])
-            outcomes.setdefault(name, StructuredOutcomes(name)).add(stp, scores)
+                length_key = DerivedData.LENGTH.to_key()
+                lens.append(inference.raw_llm_output.derived_data[length_key])
+            outcomes.setdefault(name, StructuredOutcomes(name)).add(stp, scores, lens)
         self.print("Done.")
         return list(outcomes.values())
 
@@ -264,5 +285,10 @@ class Postprocess:
             correct = instance.is_correct(result.output)
             correct_key = DerivedData.CORRECTNESS.to_key()
             inference.raw_llm_output.derived_data[correct_key] = correct
+
+            text = inference.raw_llm_output.generated_text
+            length = len(text) if text else 0
+            length_key = DerivedData.LENGTH.to_key()
+            inference.raw_llm_output.derived_data[length_key] = length
             kept_inferences.append(inference)
         return kept_inferences
