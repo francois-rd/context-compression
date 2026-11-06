@@ -25,6 +25,7 @@ DerivedDataKey = str
 class DerivedData(Enum):
     LOGPROBS = "LOGPROBS"
     PROMPT_LOGPROBS = "PROMPT_LOGPROBS"
+    CORRECTNESS = "CORRECTNESS"
 
     def to_key(self) -> DerivedDataKey:
         return self.value.lower()

@@ -4,6 +4,7 @@ from enum import Enum
 from ..core import PromptKey, SystemPrompt, InstructionPrompt
 from ..datasets import DataSlice, Instance
 from ..llms import PromptData
+from ..manipulations import Manipulation
 
 
 class TransformName(Enum):
@@ -14,8 +15,12 @@ class TransformName(Enum):
 
 
 class Transform:
-    def __init__(self, name: TransformName):
+    def __init__(self, name: TransformName, manipulation: Manipulation | None = None):
         self.name = name
+        self.manipulation = manipulation
+
+    def get_manipulation(self) -> Manipulation | None:
+        return self.manipulation
 
     def get_base_transform(self) -> TransformName:
         return self.name

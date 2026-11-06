@@ -13,3 +13,4 @@ accord_tree_size_3_file: ${accord_dir}/3.jsonl
 accord_tree_size_4_file: ${accord_dir}/4.jsonl
 accord_tree_size_5_file: ${accord_dir}/5.jsonl
 transforms_dir: ${results_dir}/transform
+postprocess_dir: ${results_dir}/postprocess

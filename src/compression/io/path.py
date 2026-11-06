@@ -52,3 +52,6 @@ class PathConfig:
 
     # Top-level result directory for all applied transforms
     transforms_dir: str = "${results_dir}/transforms"
+
+    # Top-level result directory for all inference postprocessing data.
+    postprocess_dir: str = "${results_dir}/postprocess"

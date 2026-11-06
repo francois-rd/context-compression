@@ -23,11 +23,9 @@ class ForcedCoTTransform(Transform):
         manipulations: ManipulationConfigs,
         **kwargs,
     ):
-        super().__init__(name)
+        m = load_manipulation(cfg.manipulation, manipulations, *args, **kwargs)
+        super().__init__(name, manipulation=m)
         self.cfg = cfg
-        self.manipulation = load_manipulation(
-            cfg.manipulation, manipulations, *args, **kwargs
-        )
 
     def get_base_transform(self) -> TransformName:
         return TransformName.ZERO_COT

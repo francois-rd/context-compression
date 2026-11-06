@@ -36,6 +36,7 @@ export -f launch
 # Basic terminal auto-complete.
 complete -W "
 infer
+postprocess
 test.launch
 " launch
 

@@ -1,5 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 from ...core import PromptKey
 from ...io import PathConfig, load_dataclass_jsonl
@@ -14,7 +15,14 @@ from ..base import (
     SliceName,
 )
 
-from .dataclasses import AccordInstance, CaseLink, CsqaBase, MetaData, SurfaceForms
+from .dataclasses import (
+    AccordInstance,
+    CaseLink,
+    CsqaBase,
+    Label,
+    MetaData,
+    SurfaceForms,
+)
 from .surfacer import (
     InstanceSurfacer,
     OrderingSurfacer,
@@ -70,6 +78,19 @@ class AccordSubset(Enum):
         return [AccordFactuality.F, AccordFactuality.AF]
 
 
+@dataclass
+class AccordWrapperForInstance(Instance):
+    csqa_label: Label = field(default=None)
+    meta_data: MetaData = field(default=None)
+
+    def is_correct(self, llm_answer: Any) -> bool:
+        if not isinstance(llm_answer, Label):
+            raise ValueError(
+                f"Instance {self.instance_id}: llm output is not a Label: {llm_answer}"
+            )
+        return self.meta_data.label.strip() == str(llm_answer).strip()
+
+
 class AccordDataSlice(DataSlice):
     def __init__(
         self,
@@ -80,13 +101,14 @@ class AccordDataSlice(DataSlice):
         instances: list[AccordInstance],
     ):
         wrapped = [
-            Instance(
+            AccordWrapperForInstance(
                 instance_id=i.meta_data.id,
                 core_text=i.text,
                 flow_through_data=dict(
-                    answer_choices=i.meta_data.answer_choices.copy(),
-                    csqa_label=i.csqa_label,
+                    answer_choices=i.meta_data.answer_choices.copy()
                 ),
+                csqa_label=i.csqa_label,
+                meta_data=i.meta_data,
             )
             for i in instances
         ]

@@ -14,6 +14,9 @@ class Instance:
     core_text: str
     flow_through_data: dict[str, Any] = field(default_factory=dict)
 
+    def is_correct(self, llm_answer: Any) -> bool:
+        raise NotImplementedError
+
 
 class DatasetName(Enum):
     MISSING = "MISSING"
