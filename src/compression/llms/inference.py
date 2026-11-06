@@ -6,6 +6,7 @@ from langchain_core.runnables import Runnable, chain
 from langchain_core.runnables.base import RunnableEach
 from tqdm import tqdm
 
+from ..datasets import InstanceID
 from ..io import ConditionalPrinter, load_dataclass_jsonl, save_dataclass_jsonl
 from ..parsing import OutputParser, ParserResult
 
@@ -148,6 +149,9 @@ class CheckpointedParallelInference:
 
     def _skip(self, prompt_data: PromptData) -> bool:
         return prompt_data.instance_id in self.checkpoint
+
+    def get_checkpointed(self, instance_ids: list[InstanceID]) -> list[InstanceID]:
+        return [i for i in instance_ids if i in self.checkpoint]
 
     def __call__(self, prompts: list[PromptData], *args, **kwargs) -> None:
         # Apply checkpoint skips. Summarize if verbose.

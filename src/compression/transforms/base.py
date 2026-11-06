@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ..core import PromptKey, SystemPrompt, InstructionPrompt
-from ..datasets import DataSlice, Instance
+from ..datasets import DataSlice, Instance, InstanceID
 from ..llms import PromptData
 from ..manipulations import Manipulation
 
@@ -34,6 +34,7 @@ class Transform:
     def make_prompts(
         self,
         data: DataSlice,
+        ignore: list[InstanceID],
         system: SystemPrompt,
         instruction: InstructionPrompt,
         *args,
@@ -41,6 +42,8 @@ class Transform:
     ) -> list[PromptData]:
         prompts = []
         for instance in data.instances:
+            if instance.instance_id in ignore:
+                continue
             prompt = self._make_prompt(instance, system, instruction, *args, **kwargs)
             if prompt is not None:
                 prompts.append(prompt)

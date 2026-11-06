@@ -108,8 +108,10 @@ class Infer:
         base_cot_output_file = self.general.llm_output_file(self.path, base_stp)
 
         self.print("Generating prompts...")
+        instance_ids = [i.instance_id for i in self.stp.data_slice.instances]
         prompts = self.stp.transform.make_prompts(
             data=self.stp.data_slice,
+            ignore=self.infer.get_checkpointed(instance_ids),
             system=self.system,
             instruction=self.instruction,
             base_cot_output_file=base_cot_output_file,
