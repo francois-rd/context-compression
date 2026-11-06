@@ -78,11 +78,13 @@ class DummyLLM(LLM):
 
     def _fake_generated_text(self, prompt_data: PromptData) -> str:
         if prompt_data.messages[-1].message_type == MessageType.ASSISTANT:
-            return prompt_data.messages[-1].text
+            body = prompt_data.messages[-1].text
+        else:
+            body = self.cfg.prefill_body
         label = self.rng.choices(self.pop, self.weights)[0]
         return "{begin_think}{prefill_body}{end_think}{prefill_coda}{label}".format(
             begin_think="<think>\n" if self.cfg.add_reasoning_tags else "",
-            prefill_body=self.cfg.prefill_body,
+            prefill_body=body,
             end_think="\n</think>\n\n" if self.cfg.add_reasoning_tags else "\n",
             prefill_coda=self.cfg.prefill_coda,
             label=label,
