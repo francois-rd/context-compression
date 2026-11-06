@@ -98,15 +98,22 @@ class Logprobs:
         self,
         trim_indicator: str | None,
         include_indicator: bool = False,
+        raise_if_indicator_not_found: bool = False,
         raise_if_not_unique: bool = False,
         fuzzy: bool = False,
     ) -> None:
         if trim_indicator is None:
             return
         sequences = list(self.indices_of(trim_indicator, fuzzy=fuzzy))
-        if len(sequences) != 1:
-            if raise_if_not_unique:
+        if len(sequences) == 0:
+            if raise_if_indicator_not_found:
                 raise ValueError(f"{trim_indicator=}: not found in: {self.to_text()}")
+            return  # Fail silently otherwise.
+        if len(sequences) > 1:
+            if raise_if_not_unique:
+                raise ValueError(
+                    f"{trim_indicator=}: found many times in: {self.to_text()}"
+                )
             return  # Fail silently otherwise.
         indices = sequences[0].indices
         start_idx = min(indices) if include_indicator else max(indices) + 1
