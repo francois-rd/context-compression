@@ -74,7 +74,7 @@ _launch-infer-baseline-transforms () {
     _launch-infer "$1" "$2" -- -t "$transform" "${@:3}"
   done
   for keep_p in 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0 100.0 ; do
-    for unit in NEWLINE SENTENCE TOKEN ; do
+    for unit in NEWLINE TOKEN ; do
       echo active_manipulation=RANDOM keep_p="$keep_p" unit="$unit"
       _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
          forced_cot.manipulation=TOKEN_SKIP \
@@ -86,7 +86,7 @@ export -f _launch-infer-baseline-transforms
 
 _launch-infer-token-skip () {
   for keep_p in 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0 100.0 ; do
-    for unit in NEWLINE SENTENCE TOKEN ; do
+    for unit in NEWLINE TOKEN ; do
       echo active_manipulation=TOKEN_SKIP keep_p="$keep_p" unit="$unit"
       _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
         forced_cot.manipulation=TOKEN_SKIP \
@@ -98,7 +98,8 @@ export -f _launch-infer-token-skip
 
 _launch-infer-tail-pruning-base () {
   for keep_p in 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0 100.0 ; do
-    for unit in NEWLINE SENTENCE ; do
+    # shellcheck disable=SC2043
+    for unit in NEWLINE ; do
       echo active_manipulation=TAIL_PRUNING keep_p="$keep_p" unit="$unit"
       _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
         forced_cot.manipulation=TAIL_PRUNING \
@@ -110,8 +111,9 @@ export -f _launch-infer-tail-pruning-base
 
 _launch-infer-tail-pruning-peak () {
   for keep_p in 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0 100.0 ; do
-    for exclusivity_window in 5 10 20 ; do
-      for frequency_scaler in 0.5 1.0 2.0 ; do
+    # shellcheck disable=SC2043
+    for exclusivity_window in 10 ; do
+      for frequency_scaler in 1.0 ; do
         echo keep_p="$keep_p" window="$exclusivity_window" scaler="$frequency_scaler"
         _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
           forced_cot.manipulation=TAIL_PRUNING \

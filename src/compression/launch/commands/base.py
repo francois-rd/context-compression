@@ -53,6 +53,7 @@ class GeneralConfig:
     seed: int = 42  # Random seed for reproducibility.
     active_dataset: DatasetName = DatasetName.MISSING  # The dataset to actively use.
     active_transform: TransformName = TransformName.MISSING  # The transform to use.
+    new_forced_cot_coda: str = "Answer:\n"  # New coda to add to FORCED_COT transforms.
 
     # Inference fields.
     active_data_slice: SliceName = "<missing>"  # The slice within the dataset to use.

@@ -100,6 +100,7 @@ class SliceTransformDatabase:
                     cfg=self.transforms,
                     manipulations=self.manipulations,
                     seed=self.general.seed,
+                    new_coda=self.general.new_forced_cot_coda,
                 )
                 transforms.append(transform)
         return transforms

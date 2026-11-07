@@ -219,14 +219,14 @@ class TokenSkip(Manipulation):
 
         keep_n = int(len(steps) * self.cfg.keep_p / 100)
         if self.cfg.random:
-            indices = sorted(self.rng.choice(len(steps), size=keep_n, replace=False))
+            indices = self.rng.choice(len(steps), size=keep_n, replace=False)
         else:
             if keep_n == 0:
                 indices = []
             else:
                 surprisals = [step.surprisal for step in steps]
                 indices = np.argpartition(surprisals, -keep_n)[-keep_n:].tolist()
-        top_steps = [steps[i] for i in indices]
+        top_steps = [steps[i] for i in sorted(indices)]
         return "".join(step.text + step.coda for step in top_steps)
 
     def _apply_token(self, body_start: int, body_end: int, logprobs: Logprobs) -> str:

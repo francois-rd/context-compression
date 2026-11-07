@@ -1,5 +1,6 @@
 from dataclasses import asdict, dataclass
 from enum import Enum
+import warnings
 import re
 
 import numpy as np
@@ -31,6 +32,26 @@ class StepSplitter:
     def __init__(self, how: StepSplitterUnit):
         self.how = how
         if self.how == StepSplitterUnit.SENTENCE:
+            warnings.simplefilter("always")
+            warnings.warn(
+                f"Splitting by {self.how} is not recommended for several reasons.\n"
+                f"1. spaCy does not correctly parse bullet point chain-of-thought "
+                f"reasoning steps. In particular, steps using Markdown, such as "
+                f"'**Step 1:**' get incorrectly parsed as a full sentences as such: "
+                f"'**Step 1:*' and '*'. However, '**' is often a complete token in "
+                f"the LLM output, which causes token-to-text misalignment. This occurs "
+                f"approximately 5% of the time.\n"
+                f"2. Unlike {StepSplitterUnit.NEWLINE}, {self.how} does not retain "
+                f"trailing whitespace. When pruning, this can cause the last token of "
+                f"the previous sentence to be transposed to the first token of the "
+                f"next sentence, leading to a fused word. This often still results in "
+                f"two tokens for the LLM, but can possibly cause semantic shift from "
+                f"compounding. Regardless, it can also change the token ID.\n"
+                f"3. Empirically, {StepSplitterUnit.NEWLINE} more accurately reflects "
+                f"the human intuition behind what a reasoning step is, whereas "
+                f"{self.how} often splits each conceptual step into several sentences.",
+                category=DeprecationWarning,
+            )
             self.nlp = spacy.load("en_core_web_md")
 
     def split(self, cot_body: str, start_offset: int = 0) -> list[Step]:
@@ -76,12 +97,12 @@ class CoTComponents:
             )
         return CoTComponents(*match.groups())
 
-    def to_text(self, keep_coda: bool = False) -> str:
+    def to_text(self, new_coda: str | None = None) -> str:
         return "{begin_think}{body}{end_think}{coda}".format(
             begin_think=self.begin_think,
             body=self.body,
             end_think=self.end_think,
-            coda=self.coda if keep_coda else "",
+            coda=self.coda if new_coda is None else new_coda,
         )
 
 
@@ -99,9 +120,17 @@ class ManipulationConfig:
 
 
 class Manipulation:
-    def __init__(self, name: ManipulationName, cfg: ManipulationConfig, *_, **__):
+    def __init__(
+        self,
+        name: ManipulationName,
+        cfg: ManipulationConfig,
+        *_,
+        new_coda: str | None = None,
+        **__,
+    ):
         self.name = name
         self.cfg = cfg
+        self.new_coda = new_coda
         self.inferences: dict[InstanceID, Inference] | None = None
 
     def get_path_dir(self) -> str:
@@ -126,7 +155,7 @@ class Manipulation:
         if new_body is None:
             return None
         comps.body = new_body
-        return comps.to_text()
+        return comps.to_text(new_coda=self.new_coda)
 
     def _do_apply_cot(self, cot_body: str, reference_instance: Instance) -> str | None:
         raise NotImplementedError

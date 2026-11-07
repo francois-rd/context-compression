@@ -139,7 +139,7 @@ class Logprobs:
         text: str,  # Text to search for.
         start_idx: int = 0,
         end_idx: int | None = None,
-        fuzzy: bool = False,  # Whether EOS can mismatch in *whitespace*.
+        fuzzy: bool = False,  # Whether BOS or EOS can mismatch in *whitespace*.
     ) -> Iterable[SpacedSubsequence]:
         working_sequence, working_prefix = [], ""
         end_idx = len(self.sequence) if end_idx is None else end_idx
@@ -159,7 +159,7 @@ class Logprobs:
             else:
                 working_text = ""
             if fuzzy:
-                match = working_text.rstrip() == text.rstrip()
+                match = working_text.strip() == text.strip()
             else:
                 match = working_text == text
             if match:
@@ -189,8 +189,12 @@ class Logprobs:
     def _determine_viability(
         logprob: RankedLogprob, working_prefix: str, text: str
     ) -> str | None:
+        if working_prefix.strip() == logprob.chosen.token.strip() == "":
+            # If the very first possible token is just whitespace, we can't
+            # reasonably tell if we are correctly matching against it.
+            return None
         pattern = working_prefix + r"(\s*)" + logprob.clean_up_token()
-        match = re.search(pattern, text)
+        match = re.match(pattern, text)  # match() matches against BOS. Unlike search().
         if match is None:
             return None
         return match.group(1)

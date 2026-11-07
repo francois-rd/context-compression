@@ -201,15 +201,15 @@ class OpenAIConfig:
         }
     )
 
-    # See openai.OpenAI.chat.completions.create for details. Skip 'model' and
-    # 'messages' which are handled specially. Other options may exist when servicing
-    # requests based on VLLM servers. See:
+    # See openai.OpenAI.chat.completions.create for details. Skip 'model', 'messages',
+    # 'continue_final_message', and 'add_generation_prompt' which are handled specially.
+    # Other options may exist when servicing requests based on VLLM servers. See:
     # - https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html#extra-parameters
     chat_completion_query_params: dict[str, Any] = field(
         default_factory=lambda: {
             # New tokens to add, not total tokens. For o-series OpenAI models, this
             # includes both visible tokens and reasoning tokens.
-            "max_completion_tokens": 5,
+            "max_completion_tokens": 500,
             # Experimental feature in OpenAI. Might not be 100% deterministic.
             "seed": 314159,
             # Many truthy (1, True) or falsy values (None, 0, False) work.
@@ -226,7 +226,7 @@ class OpenAIConfig:
             #         k entries are seemingly in logprob order, but this detail isn't
             #         mentioned in the documentation. Safer to always sort entries.
             #         The list is seemingly always empty for k=0.
-            "top_logprobs": 2,
+            "top_logprobs": 1,
             "extra_body": {
                 # Options:
                 # - 0: This gives exactly 1 logprob per token (that of the actual
@@ -250,6 +250,10 @@ class OpenAIConfig:
                 #         rank order.
                 # NOTE: Contains control tokens, such as "<|start_header_id|>".
                 "prompt_logprobs": 1,
+                # This definitely works on Qwen3-32B to switch between reasoning and
+                # non-reasoning modes within the same model. It is also harmlessly
+                # filtered out for any LLMs that don't accept this parameter.
+                "chat_template_kwargs": {"enable_thinking": True},
             },
         },
     )
@@ -368,6 +372,15 @@ class OpenAILLM(LLM):
         text = "".join([f"{m.text}{suffix[m.message_type]}" for m in messages]).strip()
         if self.cfg.use_chat:
             if self.cfg.use_system_prompt:
+                if messages[-1].message_type == MessageType.ASSISTANT:
+                    self.cfg.chat_completion_query_params["extra_body"].update(
+                        {
+                            # Enables prefilling the last assistant message.
+                            "continue_final_message": True,
+                            # Must be False when "continue_final_message" is True.
+                            "add_generation_prompt": False,
+                        }
+                    )
                 messages = new_messages
             else:
                 messages = [{"role": "user", "content": text}]

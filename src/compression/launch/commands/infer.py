@@ -72,6 +72,7 @@ class Infer:
             cfg=transforms,
             manipulations=manipulations,
             seed=general.seed,
+            new_coda=general.new_forced_cot_coda,
         )
         self.stp = SliceTransformProduct(data, transform)
         self.print("Done.")
@@ -103,6 +104,7 @@ class Infer:
             cfg=self.transforms,
             manipulations=self.manipulations,
             seed=self.general.seed,
+            new_coda=self.general.new_forced_cot_coda,
         )
         base_stp = SliceTransformProduct(self.stp.data_slice, base_transform)
         base_cot_output_file = self.general.llm_output_file(self.path, base_stp)
