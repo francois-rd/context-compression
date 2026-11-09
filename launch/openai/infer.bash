@@ -53,6 +53,10 @@ do
   set -- "$@" "$arg"
 done
 
-launch infer active_dataset="$dataset" active_data_slice="$slice" \
-  active_llm="$llm" active_llm_implementation=OPENAI \
-  active_transform="$transform" "$@" --openai-path openai/"$llm".yaml
+if ! \
+  launch infer active_dataset="$dataset" active_data_slice="$slice" \
+    active_llm="$llm" active_llm_implementation=OPENAI \
+    active_transform="$transform" "$@" --openai-path openai/"$llm".yaml
+then
+  exit 1
+fi

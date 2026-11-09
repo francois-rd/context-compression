@@ -34,7 +34,7 @@ class Transform:
     def make_prompts(
         self,
         data: DataSlice,
-        ignore: list[InstanceID],
+        subset_to_process: list[InstanceID],
         system: SystemPrompt,
         instruction: InstructionPrompt,
         *args,
@@ -42,7 +42,7 @@ class Transform:
     ) -> list[PromptData]:
         prompts = []
         for instance in data.instances:
-            if instance.instance_id in ignore:
+            if instance.instance_id not in subset_to_process:
                 continue
             prompt = self._make_prompt(instance, system, instruction, *args, **kwargs)
             if prompt is not None:

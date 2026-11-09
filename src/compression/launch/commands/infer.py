@@ -81,7 +81,6 @@ class Infer:
         self.system = system_prompts.prompts[self.stp.get_prompt_key()]
         self.instruction = instruction_prompts.prompts[self.stp.get_prompt_key()]
 
-        self.out_file = general.llm_output_file(path, self.stp)
         self.infer = CheckpointedParallelInference(
             infer=ParallelInference(
                 llm=general.active_llm,
@@ -91,7 +90,8 @@ class Infer:
                 log_dir=path.log_dir,  # Passed to OpenaiLLM's init.
                 trim_indicator=data_manager.get_trim_indicator(),  # OpenaiLLM.
             ),
-            out_file=self.out_file,
+            complete_id_list=[i.instance_id for i in self.stp.data_slice.instances],
+            out_file=general.llm_output_file(path, self.stp),
             batch_size=self.general.prompt_batch_size,
             verbose=self.general.verbose,
             frequency=self.general.checkpoint_frequency,
@@ -110,10 +110,9 @@ class Infer:
         base_cot_output_file = self.general.llm_output_file(self.path, base_stp)
 
         self.print("Generating prompts...")
-        instance_ids = [i.instance_id for i in self.stp.data_slice.instances]
         prompts = self.stp.transform.make_prompts(
             data=self.stp.data_slice,
-            ignore=self.infer.get_checkpointed(instance_ids),
+            subset_to_process=self.infer.get_needs_retry(),
             system=self.system,
             instruction=self.instruction,
             base_cot_output_file=base_cot_output_file,

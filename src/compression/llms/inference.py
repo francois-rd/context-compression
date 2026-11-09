@@ -120,6 +120,9 @@ class CheckpointedParallelInference:
     def __init__(
         self,
         infer: ParallelInference,
+        complete_id_list: list[InstanceID],  # List of all Instance IDs (in order) that
+        # might need to be processed through inference (including ones that will be
+        # skipped due to potential checkpointing.
         out_file: str,
         batch_size: int,
         verbose: bool,
@@ -131,39 +134,62 @@ class CheckpointedParallelInference:
         self.print = ConditionalPrinter(verbose)
         self.indicator = CheckpointIndicator(frequency)
         self.print("Loading checkpoint...")
+        self.retry = {instance_id: True for instance_id in complete_id_list}
+        self.done_inferences = {}
         if not self.indicator.disabled:
             try:
-                # Fails occur when error is *not* None, which we want to exclude from
-                # the checkpoint, so that they get retried. Hence, include in checkpoint
-                # only if error is None.
-                self.checkpoint = [
-                    i.prompt_data.instance_id
-                    for i in load_dataclass_jsonl(out_file, t=Inference)
-                    if i.raw_llm_output.error_message is None
-                ]
+                # Fails occur when error is *not* None or when ParserResult is None.
+                for i in load_dataclass_jsonl(out_file, t=Inference):
+                    needs_retry = (
+                        i.raw_llm_output.error_message is not None
+                        or i.parser_result is None
+                    )
+                    self.retry[i.prompt_data.instance_id] = needs_retry
+                    if not needs_retry:
+                        self.done_inferences[i.prompt_data.instance_id] = i
+                with open(out_file, "w"):
+                    pass  # This should empty the file.
             except FileNotFoundError:
-                self.checkpoint = []
-        else:
-            self.checkpoint = []
+                pass  # Keep retry as all True if no checkpoints.
         self.print("Done.")
 
-    def _skip(self, prompt_data: PromptData) -> bool:
-        return prompt_data.instance_id in self.checkpoint
-
-    def get_checkpointed(self, instance_ids: list[InstanceID]) -> list[InstanceID]:
-        return [i for i in instance_ids if i in self.checkpoint]
+    def get_needs_retry(self) -> list[InstanceID]:
+        return [i for i, needs_retry in self.retry.items() if needs_retry]
 
     def __call__(self, prompts: list[PromptData], *args, **kwargs) -> None:
+        """
+        :param prompts: Any prompts here are processed through the inference engine,
+        even if they've previously succeeded. Use 'get_needs_retry()' to figure out
+        the subset of prompts that haven't previously succeeded in order to not retry
+        prompts unnecessarily.
+        :param args: Passed to inference engine.
+        :param kwargs: Passed to inference engine.
+        """
         # Apply checkpoint skips. Summarize if verbose.
-        total = len(prompts)
-        prompts = [p for p in prompts if not self._skip(p)]
-        skipped = total - len(prompts)
+        prompts_map = {p.instance_id: p for p in prompts}
+        total, missing, skipped, prompts = len(self.retry), 0, 0, []
+        for i, retry in self.retry.items():
+            if i in prompts_map:
+                prompts.append(prompts_map[i])
+            elif retry:  # If not in prompts_map, but we should have retried it...
+                missing += 1  # ... mark it as missing.
+            else:  # If not given in prompts_maps and was previously done, skip it.
+                prompts.append(self.done_inferences[i])
+                skipped += 1
         self.print(f"Skipping {skipped}/{total} prompts due to checkpointing.")
+        self.print(f"Missing {missing} prompts that should be processed.")
 
         # Make batches.
-        size = self.batch_size
-        if size > 0:
-            prompts = [prompts[i : i + size] for i in range(0, len(prompts), size)]
+        if self.batch_size > 0:
+            all_batches, current_batch, prompt_count = [], [], 0
+            for i, prompt_or_inference in enumerate(prompts):
+                current_batch.append(prompt_or_inference)
+                if isinstance(prompt_or_inference, PromptData):
+                    prompt_count += 1
+                if prompt_count == self.batch_size or i == len(prompts) - 1:
+                    all_batches.append(current_batch)
+                    current_batch, prompt_count = [], 0
+            prompts = all_batches
         else:
             prompts = [prompts]
 
@@ -171,7 +197,15 @@ class CheckpointedParallelInference:
         inferences = []
         self.indicator.start(len(prompts))
         for i, batch in enumerate(tqdm(prompts) if self.print.condition else prompts):
-            inferences.extend(self.infer(batch, *args, **kwargs))
+            infer = [p_or_i for p_or_i in batch if isinstance(p_or_i, PromptData)]
+            results = {
+                r.prompt_data.instance_id: r for r in self.infer(infer, *args, **kwargs)
+            }
+            for p_or_i in batch:
+                if isinstance(p_or_i, PromptData):
+                    inferences.append(results[p_or_i.instance_id])
+                else:
+                    inferences.append(p_or_i)
             if self.indicator.do_checkpoint(i):
                 self._save(inferences)
                 inferences = []

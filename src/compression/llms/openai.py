@@ -339,8 +339,7 @@ class OpenAILLM(LLM):
 
         data = prompt_data.flow_through_data.get("derived_data", None)
         try:
-            f_args = (prompt_data.messages,)
-            out = retry_call(self._do_invoke, fargs=f_args, fkwargs=kwargs, delay=10)
+            out = self._do_invoke(prompt_data.messages, **kwargs)
         except OpenAIError as e:
             return LLMOutput(
                 generated_text=None, error_message=str(e), derived_data=data
@@ -384,10 +383,16 @@ class OpenAILLM(LLM):
                 messages = new_messages
             else:
                 messages = [{"role": "user", "content": text}]
-            response = self.client.chat.completions.create(
-                model=self.nickname,
-                messages=messages,
-                **self.cfg.chat_completion_query_params,
+
+            response = retry_call(
+                self.client.chat.completions.create,
+                fkwargs=dict(
+                    model=self.nickname,
+                    messages=messages,
+                    **self.cfg.chat_completion_query_params,
+                ),
+                delay=10,
+                tries=6,
             )
 
             # This is always a string, or None if refusal is not None.
@@ -416,10 +421,15 @@ class OpenAILLM(LLM):
             # This is presumably non-None when a refusal happens.
             refusal = response.choices[0].message.refusal is not None
         else:
-            response = self.client.completions.create(
-                model=self.nickname,
-                prompt=text,
-                **self.cfg.completion_query_params,
+            response = retry_call(
+                self.client.completions.create,
+                fkwargs=dict(
+                    model=self.nickname,
+                    prompt=text,
+                    **self.cfg.completion_query_params,
+                ),
+                delay=10,
+                tries=6,
             )
             # This is always a string. If content filtering removed it, then it might
             # be an empty string. Who knows. It is not specified in the documentation.

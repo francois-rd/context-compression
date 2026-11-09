@@ -61,6 +61,10 @@ then
   fi
 fi
 
-launch infer active_dataset="$dataset" active_data_slice="$slice" \
-  active_llm="$llm" active_llm_implementation=DUMMY \
-  active_transform="$transform" "$@" --dummy-path dummy/"$llm".yaml
+if ! \
+  launch infer active_dataset="$dataset" active_data_slice="$slice" \
+    active_llm="$llm" active_llm_implementation=DUMMY \
+    active_transform="$transform" "$@" --dummy-path dummy/"$llm".yaml
+then
+  exit 1
+fi

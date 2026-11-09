@@ -28,7 +28,7 @@ mkdir -p "$COMA_DEFAULT_CONFIG_DIR"
 # Alias for program entry.
 launch () {
   pushd "$COMA_DEFAULT_CONFIG_DIR" > /dev/null || exit
-  "$PY_VERSION" "$COMA_PROJECT_ROOT_DIR"/src/main.py "$@"
+  if ! "$PY_VERSION" "$COMA_PROJECT_ROOT_DIR"/src/main.py "$@" ; then return 1 ; fi
   popd > /dev/null || exit
 }
 export -f launch
@@ -63,7 +63,7 @@ _launch-infer () {
       ;;
   esac
   pushd "$COMA_DEFAULT_CONFIG_DIR" > /dev/null || exit
-  bash "$folder"/infer.bash "$@"
+  if ! bash "$folder"/infer.bash "$@" ; then return 1 ; fi
   popd > /dev/null || exit
 }
 export -f _launch-infer
@@ -76,9 +76,13 @@ _launch-infer-baseline-transforms () {
   for keep_p in 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0 100.0 ; do
     for unit in NEWLINE TOKEN ; do
       echo active_manipulation=RANDOM keep_p="$keep_p" unit="$unit"
-      _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
-         forced_cot.manipulation=TOKEN_SKIP \
-         token_skip.random=true token_skip.keep_p="$keep_p" token_skip.unit="$unit"
+      if ! \
+        _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
+           forced_cot.manipulation=TOKEN_SKIP \
+           token_skip.random=true token_skip.keep_p="$keep_p" token_skip.unit="$unit"
+      then
+        return 1
+      fi
     done
   done
 }
@@ -88,9 +92,13 @@ _launch-infer-token-skip () {
   for keep_p in 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0 100.0 ; do
     for unit in NEWLINE TOKEN ; do
       echo active_manipulation=TOKEN_SKIP keep_p="$keep_p" unit="$unit"
-      _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
-        forced_cot.manipulation=TOKEN_SKIP \
-        token_skip.random=false token_skip.keep_p="$keep_p" token_skip.unit="$unit"
+      if ! \
+        _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
+          forced_cot.manipulation=TOKEN_SKIP \
+          token_skip.random=false token_skip.keep_p="$keep_p" token_skip.unit="$unit"
+      then
+        return 1
+      fi
     done
   done
 }
@@ -101,9 +109,13 @@ _launch-infer-tail-pruning-base () {
     # shellcheck disable=SC2043
     for unit in NEWLINE ; do
       echo active_manipulation=TAIL_PRUNING keep_p="$keep_p" unit="$unit"
-      _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
-        forced_cot.manipulation=TAIL_PRUNING \
-        tail_pruning.keep_p="$keep_p" tail_pruning.unit="$unit"
+      if ! \
+        _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
+          forced_cot.manipulation=TAIL_PRUNING \
+          tail_pruning.keep_p="$keep_p" tail_pruning.unit="$unit"
+      then
+        return 1
+      fi
     done
   done
 }
@@ -115,11 +127,15 @@ _launch-infer-tail-pruning-peak () {
     for exclusivity_window in 10 ; do
       for frequency_scaler in 1.0 ; do
         echo keep_p="$keep_p" window="$exclusivity_window" scaler="$frequency_scaler"
-        _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
-          forced_cot.manipulation=TAIL_PRUNING \
-          tail_pruning.keep_p="$keep_p" tail_pruning.unit=PEAK \
-          tail_pruning.exclusivity_window="$exclusivity_window" \
-          tail_pruning.frequency_scaler="$frequency_scaler"
+        if ! \
+          _launch-infer "$1" "$2" -- -t FORCED_COT "${@:3}" \
+            forced_cot.manipulation=TAIL_PRUNING \
+            tail_pruning.keep_p="$keep_p" tail_pruning.unit=PEAK \
+            tail_pruning.exclusivity_window="$exclusivity_window" \
+            tail_pruning.frequency_scaler="$frequency_scaler"
+        then
+          return 1
+        fi
       done
     done
   done
@@ -128,10 +144,10 @@ export -f _launch-infer-tail-pruning-peak
 
 _launch-infer-all-transform-manipulations () {
   START_TIME=$(date +%s)
-  _launch-infer-baseline-transforms "$@"
-  _launch-infer-token-skip "$@"
-  _launch-infer-tail-pruning-base "$@"
-  _launch-infer-tail-pruning-peak "$@"
+  if ! _launch-infer-baseline-transforms "$@" ; then return 1 ; fi
+  if ! _launch-infer-token-skip "$@" ; then return 1 ; fi
+  if ! _launch-infer-tail-pruning-base "$@" ; then return 1 ; fi
+  if ! _launch-infer-tail-pruning-peak "$@" ; then return 1 ; fi
   END_TIME=$(date +%s)
   echo "Completed all runs in $((END_TIME - START_TIME)) total seconds."
 }
@@ -140,7 +156,11 @@ export -f _launch-infer-all-transform-manipulations
 _launch-infer-accord () {
   for slice in F0 F1 AF1 F2 AF2 F3 AF3 F4 AF4 F5 AF5 ; do
     echo active_data_slice="$slice"
-    _launch-infer-all-transform-manipulations "$1" "$2" -d ACCORD -s "$slice" "${@:3}"
+    if ! \
+      _launch-infer-all-transform-manipulations "$1" "$2" -d ACCORD -s "$slice" "${@:3}"
+    then
+      return 1
+    fi
   done
 }
 export -f _launch-infer-accord
