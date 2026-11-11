@@ -31,6 +31,6 @@ chat_completion_query_params:
 completion_query_params:
   max_tokens: 500
   seed: 314159
-  logprobs: 5
+  logprobs: 1
   extra_body:
     prompt_logprobs: 1

@@ -263,7 +263,7 @@ class OpenAIConfig:
     # VLLM servers. See: https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html#extra-parameters
     completion_query_params: dict[str, Any] = field(
         default_factory=lambda: {
-            "max_tokens": 5,
+            "max_tokens": 500,
             # Experimental feature in OpenAI.
             "seed": 314159,
             # Integer or None. This is hard-capped at 5 even in vLLM (even if given in
@@ -286,7 +286,7 @@ class OpenAIConfig:
             #            there are k+1 total entries. The ordering of entries is
             #            seemingly based of logprob values, but that is not mentioned
             #            in the documentation. Safer to always sort.
-            "logprobs": 5,
+            "logprobs": 1,
             "extra_body": {
                 # Identical behaviour to "prompt_logprobs" for ChatCompletions, but
                 # without the control tokens, such as "<|start_header_id|>".
