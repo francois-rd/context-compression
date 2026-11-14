@@ -130,14 +130,19 @@ class Outcome:
             return Outcome(
                 accuracy=None, acc_ci=None, length_mean=None, length_ci=None, n=None
             )
+        acc_ci_low, acc_ci_high = proportion_confint(count=count, nobs=nobs, alpha=0.05)
         length_mean = np.mean(text_lengths).item()
-        return Outcome(
-            accuracy=count / nobs,
-            acc_ci=proportion_confint(count=count, nobs=nobs, alpha=0.05),
-            length_mean=length_mean,
-            length_ci=t_dist.interval(
+        if len(set(text_lengths)) == 1:  # All text lengths are the same value.
+            length_ci = (length_mean, length_mean)
+        else:
+            length_ci = t_dist.interval(
                 1 - 0.05, df=nobs - 1, loc=length_mean, scale=sem(text_lengths)
-            ),
+            )
+        return Outcome(
+            accuracy=100 * (count / nobs),
+            acc_ci=(acc_ci_low * 100, acc_ci_high * 100),
+            length_mean=length_mean,
+            length_ci=length_ci,
             n=nobs,
         )
 
