@@ -37,6 +37,7 @@ export -f launch
 complete -W "
 infer
 postprocess
+analyze
 test.launch
 " launch
 

@@ -92,11 +92,19 @@ class GeneralConfig:
     def postprocess_file(self, path: PathConfig, llm: Nickname) -> str:
         return str(
             os.path.join(
-                path.postprocess_dir,
-                self.active_dataset.value,
-                flatten(llm) + ".jsonl",
+                path.postprocess_dir, self.active_dataset.value, flatten(llm) + ".jsonl"
             )
         )
+
+    def plot_file_for_llm(self, path: PathConfig, llm: Nickname, base_path: str) -> str:
+        return str(
+            os.path.join(
+                path.plots_dir, self.active_dataset.value, flatten(llm), base_path
+            )
+        )
+
+    def plot_file_llm_aggregate(self, path: PathConfig, base_path: str) -> str:
+        return str(os.path.join(path.plots_dir, self.active_dataset.value, base_path))
 
     @staticmethod
     def _get_file_or_dir_base(

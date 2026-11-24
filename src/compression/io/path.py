@@ -55,3 +55,6 @@ class PathConfig:
 
     # Top-level result directory for all inference postprocessing data.
     postprocess_dir: str = "${results_dir}/postprocess"
+
+    # Top-level result directory for all inference postprocessing data.
+    plots_dir: str = "${results_dir}/plots"
