@@ -88,7 +88,7 @@ class Infer:
                 parser=ParserManager(parsers).get(general.active_parser),
                 llm_cfg=llm_cfg,  # Passed to all LLMs' init.
                 log_dir=path.log_dir,  # Passed to OpenaiLLM's init.
-                trim_indicator=data_manager.get_trim_indicator(),  # OpenaiLLM.
+                trim_indicator=None,  # Trimming is causing CoT problems.
             ),
             complete_id_list=[i.instance_id for i in self.stp.data_slice.instances],
             out_file=general.llm_output_file(path, self.stp),

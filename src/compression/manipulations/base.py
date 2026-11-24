@@ -100,7 +100,7 @@ class CoTComponents:
     def to_text(self, new_coda: str | None = None) -> str:
         return "{begin_think}{body}{end_think}{coda}".format(
             begin_think=self.begin_think,
-            body=self.body,
+            body=self.body.rstrip(),
             end_think=self.end_think,
             coda=self.coda if new_coda is None else new_coda,
         )
