@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .base import DatasetManager, DatasetName
 from .accord import AccordConfig, AccordDatasetManager
@@ -6,7 +6,7 @@ from .accord import AccordConfig, AccordDatasetManager
 
 @dataclass
 class DatasetConfigs:
-    accord: AccordConfig = AccordConfig()
+    accord: AccordConfig = field(default_factory=AccordConfig)
 
 
 def load_dataset_manager(

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .base import Transform, TransformName
 from .plain import PlainConfig, PlainTransform
@@ -8,9 +8,9 @@ from .zero_cot import ZeroCoTConfig, ZeroCoTTransform
 
 @dataclass
 class TransformConfigs:
-    plain: PlainConfig = PlainConfig()
-    zero_cot: ZeroCoTConfig = ZeroCoTConfig()
-    forced_cot: ForcedCoTConfig = ForcedCoTConfig()
+    plain: PlainConfig = field(default_factory=PlainConfig)
+    zero_cot: ZeroCoTConfig = field(default_factory=ZeroCoTConfig)
+    forced_cot: ForcedCoTConfig = field(default_factory=ForcedCoTConfig)
 
 
 def load_transform(

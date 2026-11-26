@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .base import Manipulation, ManipulationName
 from .manips import (
@@ -13,9 +13,9 @@ from .manips import (
 
 @dataclass
 class ManipulationConfigs:
-    noop: NoopManipConfig = NoopManipConfig()
-    token_skip: TokenSkipConfig = TokenSkipConfig()
-    tail_pruning: TailPruningConfig = TailPruningConfig()
+    noop: NoopManipConfig = field(default_factory=NoopManipConfig)
+    token_skip: TokenSkipConfig = field(default_factory=TokenSkipConfig)
+    tail_pruning: TailPruningConfig = field(default_factory=TailPruningConfig)
 
 
 def load_manipulation(
