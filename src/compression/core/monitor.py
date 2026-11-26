@@ -15,6 +15,8 @@ def await_server(
         client = VecInfClient()
         assert client.get_status(slurm_job_id).server_status == ModelStatus.READY
 
+    assert_ready()  # This blocks until server is ready.
+
     if logger_name:
         get_logger(logger_name).info("Done. Server is running.")
 
