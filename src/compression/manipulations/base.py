@@ -4,7 +4,7 @@ import warnings
 import re
 
 import numpy as np
-import spacy
+
 
 from ..datasets import Instance, InstanceID
 from ..io import load_dataclass_jsonl
@@ -52,6 +52,9 @@ class StepSplitter:
                 f"{self.how} often splits each conceptual step into several sentences.",
                 category=DeprecationWarning,
             )
+
+            import spacy
+
             self.nlp = spacy.load("en_core_web_md")
 
     def split(self, cot_body: str, start_offset: int = 0) -> list[Step]:
